@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <PackageId>MDKAnalyzer</PackageId>
+    <PackageVersion>1.0.0.0</PackageVersion>
+    <Authors>Morten</Authors>
+    <PackageLicenseUrl></PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/malware-dev/MDK-SE</PackageProjectUrl>
+    <PackageIconUrl></PackageIconUrl>
+    <RepositoryUrl>d:\nuget</RepositoryUrl>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Description>MDKAnalyzer</Description>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Copyright>Copyright © Morten Aune Lyrstad 2017</Copyright>
+    <PackageTags>MDK,MDKAnalyzer, analyzers</PackageTags>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <RootNamespace>Malware.MDKAnalyzer</RootNamespace>
+    <Product>MDK/SE</Product>
+    <PackageLicenseFile>MIT License.txt</PackageLicenseFile>
+    <PackageIcon>malware64.png</PackageIcon>
+    <RepositoryType>file</RepositoryType>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Remove="MDKAnalyzer.Test\**" />
+    <Compile Remove="MDKAnalyzer.Vsix\**" />
+    <EmbeddedResource Remove="MDKAnalyzer.Test\**" />
+    <EmbeddedResource Remove="MDKAnalyzer.Vsix\**" />
+    <None Remove="MDKAnalyzer.Test\**" />
+    <None Remove="MDKAnalyzer.Vsix\**" />
+    <None Include="malware64.png" Pack="true" PackagePath="" />
+    <None Include="MIT License.txt" Pack="true" PackagePath="" />
+    
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Remove="MDKAnalyzerAnalyzer.cs" />
+    <Compile Remove="MDKAnalyzerCodeFixProvider.cs" />
+    <Compile Remove="Resources.Designer.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Remove="Resources.resx" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Remove="terminal.cache" />
+    <None Remove="whitelist.cache" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="MIT License.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="terminal.cache">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="whitelist.cache">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+   
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.8.0" PrivateAssets="all" />
+    <PackageReference Update="NETStandard.Library" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="tools\*.ps1" CopyToOutputDirectory="Always" Pack="true" PackagePath="" />
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+  <Import Project="..\Mixin.MDKProjectProperties\Mixin.MDKProjectProperties.projitems" Label="Shared" />
+
+</Project>
