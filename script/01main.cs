@@ -17,6 +17,7 @@
 public void Main() 
 {
     IMyInteriorLight light;
+    IMyProjector proj;
 
     light = GridTerminalSystem.GetBlockWithName("That Important Light") as IMyInteriorLight;
     if (light == null) 
