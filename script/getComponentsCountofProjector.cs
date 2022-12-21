@@ -22,7 +22,7 @@ public void textClear()
     lcd_show.WriteText("", false);
 }
 
-int tick=0;
+// int tick=0;
 public Program()
 {
     // Runtime.UpdateFrequency = UpdateFrequency.Update1;
@@ -60,6 +60,12 @@ public void Main(string argument, UpdateType updateSource)
     // int RemainingBlocks { get; }
     textAppend("RemainingBlocks:" + projector.RemainingBlocks.ToString() + "\r\n");
     
+    string blockName = "";
+    int amount = 0;
+    //The first block of DetailedInfos should be "Armor blocks"
+    blockName = blocks[0].Split(':')[0];
+    amount = Int32.Parse(blocks[0].Split(':')[1]);
+
 
     //Get the blocks list from the projo detailed infos
     string[] strDetailedInfo = (projector as IMyTerminalBlock).DetailedInfo.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
@@ -67,5 +73,7 @@ public void Main(string argument, UpdateType updateSource)
     for(int i=1; i<blocks.Count; i++)
     {
         Echo(blocks[i]);
+        blockName = blocks[i].Split(':')[0];
+        amount = Int32.Parse(blocks[i].Split(':')[1]);
     }
 }
