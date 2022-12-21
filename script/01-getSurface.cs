@@ -44,6 +44,7 @@ public void Main(string argument, UpdateType updateSource)
 
     lcd0 = Me.GetSurface(0);
     lcd_show = lcd0;
+    lcd_show.ContentType = ContentType.TEXT_AND_IMAGE;
     Echo("lcd name:"+lcd0.Name);
     Echo("lcd Displayname:"+lcd0.DisplayName);
     textClear();

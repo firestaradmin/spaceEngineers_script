@@ -51,6 +51,8 @@ public void Main(string argument, UpdateType updateSource)
     if(panels.Count<1)return;
     // 取第一个
     IMyTextPanel panel=panels[0];
+    panel.ContentType = ContentType.TEXT_AND_IMAGE;
+
     Echo("target LCD: "+panel.CustomName);
     // 开启LCD显示
     panel.ShowPublicTextOnScreen();

@@ -1,8 +1,7 @@
 
 
 
-int tick=0;
-
+int tick = 0;
 public Program()
 {
     // The constructor, called only once every session and
@@ -16,8 +15,8 @@ public Program()
     // here, which will allow your script to run itself without a 
     // timer block.
 
-    Runtime.UpdateFrequency = UpdateFrequency.Update1;       // 1time/1tick
-    // Runtime.UpdateFrequency = UpdateFrequency.Update10;      // 1time/10tick
+    // Runtime.UpdateFrequency = UpdateFrequency.Update1;       // 1time/1tick
+    Runtime.UpdateFrequency = UpdateFrequency.Update10;      // 1time/10tick
     // Runtime.UpdateFrequency = UpdateFrequency.Update100;     // 1time/100tick
 
 }
@@ -51,7 +50,17 @@ public void Main(string argument, UpdateType updateSource)
     if(panels.Count<1)return;
     // 取第一个
     IMyTextPanel panel=panels[0];
+    panel.ContentType = ContentType.TEXT_AND_IMAGE;
+
     Echo("target LCD: "+panel.CustomName);
+
+    // panel.FontSize = 2;
+    Echo(panel.SurfaceSize.X+" | "+panel.SurfaceSize.Y);
+    Echo(panel.TextureSize.X+" | "+panel.TextureSize.Y);
+    Vector2 singleC = panel.MeasureStringInPixels(new StringBuilder("ABC", 50), panel.Font, panel.FontSize);
+    Echo(singleC.X+" | "+singleC.Y);
+    
+
     // 开启LCD显示
     panel.ShowPublicTextOnScreen();
     // 输出字符
