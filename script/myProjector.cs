@@ -27,14 +27,21 @@ private int GetCountFromDic<T>(Dictionary<T, int> dic, T key)
 }
 
 
+private readonly bool inventoryFromSubgrids = false; // consider inventories on subgrids when computing available materials
 
 public Program()
 {
+    Runtime.UpdateFrequency = UpdateFrequency.Update100;     // 1time/100tick
+
     // get data from blockDefinitionData. splitted[0] is component names
     string[] splitted = blockDefinitionData.Split(new char[] { '$' });
     string[] componentNames = splitted[0].Split(new char[] { '*' });
-    for (var i = 0; i < componentNames.Length; i++)
+    for (var i = 0; i < componentNames.Length; i++){
+        TotalCompDict[componentNames[i].Replace("Component", "")] = 0;
+        needCompDict[componentNames[i]] = 0;
+        
         componentNames[i] = "MyObjectBuilder_BlueprintDefinition/" + componentNames[i];
+    }
 
     //$SmallMissileLauncher*(null)=0:4,2:2,5:1,7:4,8:1,4:1*LargeMissileLauncher=0:35,2:8,5:30,7:25,8:6,4:4$
     char[] asterisk = new char[] { '*' };
@@ -106,7 +113,7 @@ public void AddComponents(Dictionary<string, int> addTo, Dictionary<string, int>
 
 }
 
-private List<KeyValuePair<string, int>> GetTotalComponents(IMyProjector projector)
+private List<KeyValuePair<string, int>> GetNeedComponents(IMyProjector projector)
 {
     var blocks = projector.RemainingBlocksPerType;
     char[] delimiters = new char[] { ',' };
@@ -149,9 +156,62 @@ private List<KeyValuePair<string, int>> GetTotalComponents(IMyProjector projecto
     //compList.Sort((x, y) => string.Compare(TranslateDef(x.Key), TranslateDef(y.Key)));
     compList.Sort((x, y) => string.Compare(x.Key, y.Key));
 
+
+    for (int i = 0; i < needCompDict.Count; i++)
+    {
+        var item = needCompDict.ElementAt(i);
+        needCompDict[item.Key] = 0;
+    }
+    for (int i = 0; i < totalComponents.Count; i++)
+    {
+        var item = totalComponents.ElementAt(i);
+        needCompDict[item.Key.Replace("MyObjectBuilder_BlueprintDefinition/", "")] = item.Value;
+    }
+
+
     return compList;
 }
 
+
+private List<KeyValuePair<string, int>> updateTotalComponentsInSys()
+{
+    var cubeBlocks = new List<IMyCubeBlock>();
+    GridTerminalSystem.GetBlocksOfType<IMyCubeBlock>(cubeBlocks, block => block.CubeGrid == Me.CubeGrid || inventoryFromSubgrids);
+    // foreach(KeyValuePair<string, int>kvp in TotalCompDict)
+    // {
+    //     TotalCompDict[kvp.Key] = 0;
+    //     // Console.WriteLine("Key = {0}, Value = {1}",kvp.Key, kvp.Value);
+    // }
+    for (int i = 0; i < TotalCompDict.Count; i++)
+    {
+        var item = TotalCompDict.ElementAt(i);
+        TotalCompDict[item.Key] = 0;
+    }
+
+    Dictionary<string, int> componentAmounts = new Dictionary<string, int>();
+    foreach (var b in cubeBlocks)
+    {
+        if (b.HasInventory)
+        {
+            for (int i = 0; i < b.InventoryCount; i++)
+            {
+                var itemList = new List<MyInventoryItem>();
+                b.GetInventory(i).GetItems(itemList);
+                foreach (var item in itemList)
+                {
+                    if (item.Type.TypeId.Equals("MyObjectBuilder_Component"))
+                    {
+                        AddCountToDict(componentAmounts, item.Type.SubtypeId, item.Amount.ToIntSafe());
+                        AddCountToDict(TotalCompDict, item.Type.SubtypeId, item.Amount.ToIntSafe());
+                        // Echo(item.Type.SubtypeId);
+                        // TotalCompDict[item.Type.SubtypeId.Replace("MyObjectBuilder_BlueprintDefinition/", "")]
+                    }
+                }
+            }
+        }
+    }
+    return componentAmounts.ToList();
+}
 
 private List<KeyValuePair<string, int>> SubtractPresentComponents(List<KeyValuePair<string, int>> compList)
 {
@@ -187,80 +247,21 @@ private List<KeyValuePair<string, int>> SubtractPresentComponents(List<KeyValueP
     return ret;
 }
 
-
-public bool lightArmor;
-
-public void Main(string argument)
-{
-    string projectorName = "Projector", assemblerName = "Assembler";
-    int staggeringFactor = 10; // set 1 to not stagger: 交错添加生产队列到组装机|分为几次添加生产队列到组装机
-    bool fewFirst = true;
-    lightArmor = true;
-    bool useRemaining = false;
-
-    if (!String.IsNullOrEmpty(argument))
-    {
-        try
-        {
-            var spl = argument.Split(';');
-            if (spl[0] != "")
-                projectorName = spl[0];
-            if (spl.Length > 1)
-                if (spl[1] != "")
-                    assemblerName = spl[1];
-            if (spl.Length > 2)
-                if (spl[2] != "")
-                    lightArmor = bool.Parse(spl[2]);    // 是否为轻装甲
-            if (spl.Length > 3)
-                if (spl[3] != "")
-                    staggeringFactor = int.Parse(spl[3]);   // 分为几次添加生产队列到组装机
-            if (spl.Length > 4)
-                if (spl[4] != "")
-                    fewFirst = bool.Parse(spl[4]);          // 是否少的先造
-            if (spl.Length > 5)
-                if (spl[5] != "")
-                    useRemaining = bool.Parse(spl[5]);      // 是否使用库存
-        }
-        catch (Exception)
-        {
-            Echo("Wrong argument(s). Format: [ProjectorName];[AssemblerName];[lightArmor];[staggeringFactor];[fewFirst];[useRemaining]. ");
-            return;
-        }
-    }
-
-    if (staggeringFactor <= 0)
-    {
-        Echo("Invalid staggeringFactor: must be an integer greater than 0.");
-        return;
-    }
-    IMyProjector projector = GridTerminalSystem.GetBlockWithName(projectorName) as IMyProjector;
-    if (projector == null)
-    {
-        Echo("The specified projector name is not valid. No projector found.");
+public void makeit(){
+    if(makeOrder_OK){
         return;
     }
 
-    var compList = GetTotalComponents(projector);
-    
-
-    if (useRemaining)
-    {
-        compList = SubtractPresentComponents(compList);
+    if(useRemaining){
+        needMakeCompList = SubtractPresentComponents(needCompList);
     }
-
-
-
-    // print result to customData View
-    string output = "";
-    foreach (var component in compList)
-        output += component.Key.Replace("MyObjectBuilder_BlueprintDefinition/", "") + " " + component.Value.ToString() + "\n";
-    Me.CustomData = output;
-
-
+    else{
+        needMakeCompList = needCompList;
+    }
 
     if (fewFirst)
     {
-        compList.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
+        needMakeCompList.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
     }
 
     // add to Assembler
@@ -275,7 +276,7 @@ public void Main(string argument)
 
         for (int i = 0; i < staggeringFactor; i++)
         {
-            foreach (var x in compList)
+            foreach (var x in needMakeCompList)
             {
                 if (x.Key.Contains("ZoneChip"))
                 {
@@ -293,9 +294,293 @@ public void Main(string argument)
             }
         }
     }
+    makeOrder_OK = true;
+}
+
+MyVerticalLcdArray lcd = new MyVerticalLcdArray();
+
+
+public Dictionary<string, int> TotalCompDict = new Dictionary<string, int>();
+public Dictionary<string, int> needCompDict = new Dictionary<string, int>();
+public List<KeyValuePair<string, int>> needCompList;
+// public List<KeyValuePair<string, int>> TotalCompList = new List<KeyValuePair<string, int>>();
+public List<KeyValuePair<string, int>> needMakeCompList = new List<KeyValuePair<string, int>>();
+public List<KeyValuePair<string, int>> s_needCompList = new List<KeyValuePair<string, int>>();
+public List<KeyValuePair<string, int>> s_TotalCompList = new List<KeyValuePair<string, int>>();
+
+
+public string projectorName = "Projector", assemblerName = "Assembler";
+public int staggeringFactor = 1; // set 1 to not stagger: 交错添加生产队列到组装机|分为几次添加生产队列到组装机
+public bool fewFirst = true;
+public bool lightArmor = true;
+public bool useRemaining = false;
+
+
+bool needCompList_OK = false;
+bool makeOrder_OK = false;
+bool isFirstRun = true;
+
+
+IMyProjector projector = null;
+IMyAssembler assembler = null;
+
+
+
+public void Main(string argument)
+{
+    if(isFirstRun == true){
+        if (!String.IsNullOrEmpty(argument))
+        {
+            try
+            {
+                var spl = argument.Split(';');
+                if (spl[0] != "")
+                    projectorName = spl[0];
+                if (spl.Length > 1)
+                    if (spl[1] != "")
+                        assemblerName = spl[1];
+                if (spl.Length > 2)
+                    if (spl[2] != "")
+                        lightArmor = bool.Parse(spl[2]);    // 是否为轻装甲
+                if (spl.Length > 3)
+                    if (spl[3] != "")
+                        staggeringFactor = int.Parse(spl[3]);   // 分为几次添加生产队列到组装机
+                if (spl.Length > 4)
+                    if (spl[4] != "")
+                        fewFirst = bool.Parse(spl[4]);          // 是否少的先造
+                if (spl.Length > 5)
+                    if (spl[5] != "")
+                        useRemaining = bool.Parse(spl[5]);      // 是否使用库存
+            }
+            catch (Exception)
+            {
+                Echo("Wrong argument(s). Format: [ProjectorName];[AssemblerName];[lightArmor];[staggeringFactor];[fewFirst];[useRemaining]. ");
+                return;
+            }
+        }
+
+        if (staggeringFactor <= 0)
+        {
+            Echo("Invalid staggeringFactor: must be an integer greater than 0.");
+            return;
+        }
+        projector = GridTerminalSystem.GetBlockWithName(projectorName) as IMyProjector;
+        if (projector == null)
+        {
+            Echo("The specified projector name is not valid. No projector found.");
+            return;
+        }
+        Echo("projector ok");
+        
+
+        assembler = GridTerminalSystem.GetBlockWithName(assemblerName) as IMyAssembler;
+        if (assembler == null)
+        {
+            Echo("The specified assembler name is not valid. No assembler found.");
+            return;
+        }
+        Echo("assembler ok");
+
+        isFirstRun = false;
+    }
+    else{
+        if (!String.IsNullOrEmpty(argument))
+        {
+
+            if(argument == "%makeit"){
+                makeit();
+            }
+            else if(argument == "%reset"){
+                makeOrder_OK = false;
+                needCompList_OK = false;
+                isFirstRun = true;
+
+            }
+            else if(argument == "%useremain"){
+                useRemaining = !useRemaining;
+            }
+        }
+    }
+
+    if(!lcd.initOK) {
+        if(lcd.init(2,"PVLCD",1.3,GridTerminalSystem) == false){
+            Echo(lcd.strError);
+            return;
+        }
+    }
+    lcd.clearAll();
+    if(needCompList_OK == false){
+        needCompList = GetNeedComponents(projector);
+        needCompList_OK=true;
+    }
+    // foreach(KeyValuePair<string, int>kvp in needCompDict)
+    // {
+    //     sss+=(kvp.Key + ": " + kvp.Value)+"\n";
+    //     // Echo(kvp.Key + ": " + kvp.Value);
+    // }
+    // sss+="=====\n";
+
+    // update Total comp amount
+    updateTotalComponentsInSys();
+    // foreach(KeyValuePair<string, int>kvp in TotalCompDict)
+    // {
+    //     sss+=(kvp.Key + ": " + kvp.Value)+"\n";
+    //     // Echo(kvp.Key + ": " + kvp.Value);
+    // }
+    // Me.CustomData = sss;
+
+    // Echo(": " + needCompDict.Count() + TotalCompDict.Count());
+    // show info
+    lcd.write("project info: ");
+    if(useRemaining) lcd.write("  USE REMAINED\n");
+    else lcd.write(" Not USE REMAINED\n");
+    string output = "";
+    foreach(KeyValuePair<string, int>kvp in needCompDict)
+    {
+        output += String.Format("{0,-25}", kvp.Key.Replace("Component", "")) + " [" + 
+        String.Format("{0,4}", kvp.Value.ToString()) +  
+        "|" + 
+        String.Format("{0,-4}", TotalCompDict[kvp.Key.Replace("Component", "")].ToString()) + 
+        "]\n";
+        // Echo(kvp.Key + ": " + kvp.Value);
+    }
+    // foreach (var component in sNameCompList){
+    //     output += String.Format("{0,-23}", component.Key) + " [ " + component.Value.ToString() + " ]\n";
+    // }
+    Me.CustomData = output;
+    lcd.write(output);
+
+
+    // // print result to customData View
+    // string output = "";
+    // foreach (var component in needMakeCompList)
+    //     output += component.Key.Replace("MyObjectBuilder_BlueprintDefinition/", "") + " " + component.Value.ToString() + "\n";
+    // Me.CustomData = output;
+
 
 }
 
+
+class MyVerticalLcdArray
+{
+
+    /* EXAMPLE
+        MyVerticalLcdArray lcd = new MyVerticalLcdArray();
+        if(!lcd.initOK) {
+            if(lcd.init(2,"LVLCD",1.5,GridTerminalSystem) == false){
+                Echo(lcd.strError);
+                return;
+            }
+        }
+        lcd.clearAll();
+        lcd.write("components Statistics:\n");
+        lcd.write(output);
+    */
+    public List<IMyTextPanel> panels = new List<IMyTextPanel>();
+    public bool initOK = false;
+    public string strError;
+    IMyGridTerminalSystem _GridTerminalSystem = null;
+
+    public int singleLCDMaxRow = 0;
+    int _currentRow = 0;
+    int _index = 0;
+
+    public  MyVerticalLcdArray()
+    {
+
+    }
+
+    public bool init(int LCDCnt, string nameExTag, double FontSize, IMyGridTerminalSystem _sys)
+    {
+        _GridTerminalSystem = _sys;
+        IMyTextPanel panel;
+        for (int i = 0; i < LCDCnt; i++)
+        {
+            panel = _GridTerminalSystem.GetBlockWithName(nameExTag+i) as IMyTextPanel;
+            if(panel == null){
+                strError = "error to init LCD, name: "+nameExTag+i;
+                return false;
+            }
+            panels.Add(panel);
+            panel.FontSize = (float)FontSize;
+            panel.Font = "Monospace";
+            panel.ContentType = ContentType.TEXT_AND_IMAGE;
+            // panel.ShowPublicTextOnScreen();
+            panel.WriteText("",false);
+
+
+        }
+        initOK = true;
+        // Echo(panel.SurfaceSize.X+" | "+panel.SurfaceSize.Y);
+        Vector2 singleC = panels[_index].MeasureStringInPixels(new StringBuilder("ABC", 50), panels[_index].Font, panels[_index].FontSize);
+        // Echo(singleC.X+" | "+singleC.Y);
+        singleLCDMaxRow = (int)panels[_index].SurfaceSize.Y / (int)singleC.Y;
+
+        return true;
+    }
+
+
+    public void write_lcd(int index, string str)
+    {
+        if(!initOK) return;
+        if(index >= panels.Count()){
+            strError = "LCD index invaild!";
+            return;
+        }
+        panels[index].WriteText(str,true);
+    }
+
+    public void write(string str)
+    {
+        if(!initOK) return;
+        // int CRLFCount = System.Text.RegularExpressions.Regex.Matches(str, "\n").Count;
+        if(str.Contains("\n")){
+            string[] strLine = str.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
+            for (int i = 0; i < strLine.Count(); i++)
+            {
+                panels[_index].WriteText(strLine[i],true);
+                if(i < strLine.Count() - 1){
+                    _currentRow++;
+                    panels[_index].WriteText("\n",true);
+                    if(_currentRow >= singleLCDMaxRow){
+                        _currentRow = 0;
+                        _index++;
+                        if(_index >= panels.Count()) _index = panels.Count()-1;
+                    }
+                }
+
+            }
+
+        }
+        else{
+            panels[_index].WriteText(str,true);
+        }
+
+
+
+    }
+
+    public void clear_lcd(int index)
+    {
+        if(!initOK) return;
+        if(index >= panels.Count()){
+            strError = "LCD index invaild!";
+            return;
+        }
+        panels[index].WriteText("",false);
+    }
+    public void clearAll()
+    {
+        if(!initOK) return;
+        foreach(var p in panels){
+            p.WriteText("",false);
+        }
+        _index = 0;
+        _currentRow = 0;
+    }
+
+
+}
 
 
 

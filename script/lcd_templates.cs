@@ -1,29 +1,7 @@
 
 
-// namespace LXG
-// {
 
-private void AddCountToDict<T>(Dictionary<T, int> dic, T key, int amount)
-{
-    if (dic.ContainsKey(key))
-    {
-        dic[key] += amount;
-    }
-    else
-    {
-        dic[key] = amount;
-    }
-}
-
-private int GetCountFromDic<T>(Dictionary<T, int> dic, T key)
-{
-    if (dic.ContainsKey(key))
-    {
-        return dic[key];
-    }
-    return 0;
-}
-
+int tick=0;
 
 public Program()
 {
@@ -36,8 +14,12 @@ public Program()
     // 
     // It's recommended to set RuntimeInfo.UpdateFrequency 
     // here, which will allow your script to run itself without a 
-    Runtime.UpdateFrequency = UpdateFrequency.Update100;     // 1time/100tick
     // timer block.
+
+    Runtime.UpdateFrequency = UpdateFrequency.Update1;       // 1time/1tick
+    // Runtime.UpdateFrequency = UpdateFrequency.Update10;      // 1time/10tick
+    // Runtime.UpdateFrequency = UpdateFrequency.Update100;     // 1time/100tick
+
 }
 
 public void Save()
@@ -50,47 +32,8 @@ public void Save()
     // needed.
 }
 
-private readonly bool inventoryFromSubgrids = false; // consider inventories on subgrids when computing available materials
-
-
-private List<KeyValuePair<string, int>> getAllComponentsInSys()
-{
-    var cubeBlocks = new List<IMyCubeBlock>();
-    GridTerminalSystem.GetBlocksOfType<IMyCubeBlock>(cubeBlocks, block => block.CubeGrid == Me.CubeGrid || inventoryFromSubgrids);
-
-    Dictionary<string, int> componentAmounts = new Dictionary<string, int>();
-    foreach (var b in cubeBlocks)
-    {
-        if (b.HasInventory)
-        {
-            for (int i = 0; i < b.InventoryCount; i++)
-            {
-                var itemList = new List<MyInventoryItem>();
-                b.GetInventory(i).GetItems(itemList);
-                foreach (var item in itemList)
-                {
-                    if (item.Type.TypeId.Equals("MyObjectBuilder_Component"))
-                    {
-                        AddCountToDict(componentAmounts, item.Type.SubtypeId, item.Amount.ToIntSafe());
-                    }
-                }
-            }
-        }
-    }
-    return componentAmounts.ToList();
-
-    // List<KeyValuePair<string, int>> ret = new List<KeyValuePair<string, int>>();
-    // foreach (var comp in compList)
-    // {
-    //     string subTypeId = comp.Key.Replace("MyObjectBuilder_BlueprintDefinition/", "").Replace("Component", "");
-    //     ret.Add(new KeyValuePair<string, int>(comp.Key, Math.Max(0, comp.Value - GetCountFromDic(componentAmounts, subTypeId))));
-    // }
-    // return ret;
-}
-
 
 MyVerticalLcdArray lcd = new MyVerticalLcdArray();
-
 
 
 public void Main(string argument, UpdateType updateSource)
@@ -103,33 +46,14 @@ public void Main(string argument, UpdateType updateSource)
     // The method itself is required, but the arguments above
     // can be removed if not needed.
 
-    List<KeyValuePair<string, int>> compList = new List<KeyValuePair<string, int>>();
-    compList = getAllComponentsInSys();
-
-    // print result to customData View
-    List<KeyValuePair<string, int>> sNameCompList = new List<KeyValuePair<string, int>>();
-    foreach (var component in compList){
-        sNameCompList.Add(new KeyValuePair<string, int>(component.Key.Replace("MyObjectBuilder_BlueprintDefinition/", ""), component.Value));
-    }
-
-    string output = "";
-    foreach (var component in sNameCompList){
-        output += String.Format("{0,-23}", component.Key) + " [ " + component.Value.ToString() + " ]\n";
-    }
-    Me.CustomData = output;
-
     if(!lcd.initOK) {
-        if(lcd.init(2,"LVLCD",1.5,GridTerminalSystem) == false){
+        if(lcd.init(1,"LCD",1.5,GridTerminalSystem) == false){
             Echo(lcd.strError);
             return;
         }
     }
     lcd.clearAll();
-    lcd.write("components Statistics: \n");
-    lcd.write(output);
-
-
-
+    lcd.write("tick:"+tick++);
 }
 
 
@@ -256,4 +180,14 @@ class MyVerticalLcdArray
 
 
 }
-// } // end LXG namespace
+
+
+
+
+// 游戏中的编译器存在白名单，即用户只能使用特定的类与方法，白名单如下：
+
+// Sandbox.ModAPI.Ingame;
+// Sandbox.ModAPI.Interfaces;
+// Sandbox.Common.ObjectBuilders;
+// VRageMath;
+// VRage;
